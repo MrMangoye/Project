@@ -1,30 +1,19 @@
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
 
-// Import routes
-const authRoutes = require('./routes/authRoutes');
-const familyRoutes = require('./routes/familyRoutes');
+function App() {
+  return (
+    <Router>
+      <Routes>
+        {/* Default route goes to Login */}
+        <Route path="/" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+      </Routes>
+    </Router>
+  );
+}
 
-const app = express();
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// Health check route
-app.get('/', (req, res) => {
-  res.send('API is running...');
-});
-
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/family', familyRoutes);
-
-// Error handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).send('Something broke!');
-});
-
-module.exports = app;
+export default App;
