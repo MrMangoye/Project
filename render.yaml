@@ -3,7 +3,7 @@ services:
   - type: web
     name: family-backend
     env: node
-    rootDir: backend   # adjust if your backend code is in /backend
+    rootDir: server              # <-- use "server" instead of "backend"
     buildCommand: "npm install"
     startCommand: "node server.js"
     plan: free
@@ -12,15 +12,19 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
+      - key: NODE_VERSION        # ensure modern Node
+        value: 18
 
   # Frontend service
   - type: web
     name: family-frontend
     env: node
-    rootDir: frontend   # adjust if your frontend code is in /frontend
+    rootDir: client              # <-- use "client" instead of "frontend"
     buildCommand: "npm install && npm run build"
-    startCommand: "npx serve -s dist"   # use "build" if CRA
+    startCommand: "npx serve -s dist"   # change to "build" if CRA
     plan: free
     envVars:
       - key: VITE_API_URL
         value: "https://family-backend.onrender.com"
+      - key: NODE_VERSION
+        value: 18
