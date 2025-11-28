@@ -3,7 +3,7 @@ services:
   - type: web
     name: family-backend
     env: node
-    rootDir: server              # <-- use "server" instead of "backend"
+    rootDir: server
     buildCommand: "npm install"
     startCommand: "node server.js"
     plan: free
@@ -12,16 +12,16 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
-      - key: NODE_VERSION        # ensure modern Node
+      - key: NODE_VERSION
         value: 18
 
   # Frontend service
   - type: web
     name: family-frontend
     env: node
-    rootDir: client              # <-- use "client" instead of "frontend"
+    rootDir: client
     buildCommand: "npm install && npm run build"
-    startCommand: "npx serve -s dist"   # change to "build" if CRA
+    startCommand: "npx serve -s dist"
     plan: free
     envVars:
       - key: VITE_API_URL
