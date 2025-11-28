@@ -1,92 +1,79 @@
-Family Tree & Business Directory Application
+Family Management Application
 Overview
-This project is a full-stack web application designed to help users create and manage family trees while also maintaining a searchable directory of family members’ businesses. It combines a React frontend with an Express/MongoDB backend to deliver a secure, interactive, and user-friendly experience.
+This project is a full-stack family management system that allows users to create, join, and manage family groups. It provides tools to add family members with detailed personal information, track relationships, and manage business details associated with family members. The application also includes a dashboard for viewing family data, a business directory, and a family tree visualization.
+The purpose of this project is to make family history, relationships, and entrepreneurial activities easy to organize and accessible in one place.
 
 Features
-User Authentication
-- Secure registration and login with hashed passwords.
-- JWT-based authentication for protected routes.
-- Profile management with sensitive data excluded from responses.
-Family Tree Management
-- Create a new family linked to a user account.
+User Management
+- Secure registration and login using JWT authentication.
+- Passwords are hashed for security.
+- Each user can either create a new family or join an existing one.
+Family Management
+- Create a new family with a name and description.
+- Join an existing family using a family ID.
+- Dashboard view of family details and members.
+Member Management
 - Add members with personal details such as name, date of birth, gender, and occupation.
-- Define relationships including parents, children, siblings, and spouses.
-- Automatically update related members when new relationships are added.
-- Visualize the family structure using an interactive tree view powered by react-d3-tree.
+- Define relationships including parents, spouses, siblings, and children.
+- Add business information such as business name, industry, and contact details.
+- Relationships are automatically updated bidirectionally (for example, adding a child updates parent and sibling links).
 Business Directory
-- Add business information for family members including name, industry, and contact details.
-- Search and filter businesses by name or industry.
-- Provides a quick overview of entrepreneurial activities within the family.
-Dashboard
-- Central hub for managing the family tree.
-- Includes components for adding members, viewing the tree, and browsing the business directory.
-Backend API
-- RESTful endpoints for user registration and login.
-- Endpoints for creating, updating, and deleting families and members.
-- Endpoints for fetching families and members with populated relationships.
-- Middleware for authentication and error handling.
+- Search and filter family members by their businesses or industries.
+- Provides quick access to entrepreneurial information within the family.
+Family Tree
+- Visual representation of family hierarchy.
+- Displays parent-child relationships in a tree structure.
 
-Tech Stack
+Technology Stack
 Frontend
-- React (functional components and hooks)
-- react-router-dom (navigation)
-- react-d3-tree (tree visualization)
-- Axios (API communication)
+- React.js with hooks (useState, useEffect)
+- React Router for navigation
+- Axios for API requests
+- CSS Grid and card-based layouts for styling
 Backend
-- Node.js with Express
-- MongoDB with Mongoose
-- JWT for authentication
-- bcrypt for password hashing
-- CORS and Helmet for security
-
-Getting Started
-Prerequisites
-- Node.js (v16 or higher recommended)
-- MongoDB (local installation or cloud service such as MongoDB Atlas)
-Installation
-- Clone the repository:
-git clone https://github.com/your-repo/family-tree-app.git
-cd family-tree-app
-- Install dependencies:
-npm install
-- Set up environment variables in a .env file:
-MONGO_URI=your_mongo_connection_string
-JWT_SECRET=your_secret_key
-PORT=5000
-- Start the backend:
-npm run server
-- Start the frontend:
-npm start
-
-
+- Node.js and Express.js for REST API
+- MongoDB and Mongoose for data storage
+- JWT authentication for secure access
+- bcrypt.js for password hashing
 
 Project Structure
-/client        # React frontend
-  /components  # UI components (AddMember, TreeView, BusinessDirectory, etc.)
-  /pages       # Pages (Dashboard, Login, Register)
-  /services    # Axios API setup
+Frontend
+- src/pages/ contains pages such as Login, Register, Dashboard, JoinFamily, SetupFamily, and ChooseFamily.
+- src/components/ contains reusable components such as AddMember, BusinessDirectory, MemberProfile, and TreeView.
+- src/services/api.js defines the Axios instance with interceptors.
+- src/App.jsx sets up routing.
+Backend
+- models/ contains Mongoose schemas for User, Family, and Person.
+- routes/ contains Express routes for authentication, family, and member management.
+- middleware/ contains JWT authentication middleware.
+- server.js initializes the Express app and connects to MongoDB.
 
-/server        # Express backend
-  /models      # Mongoose schemas (User, Family, Person)
-  /routes      # Auth and Family routes
-  /middleware  # Authentication middleware
-  app.js       # Express app setup
-  server.js    # MongoDB connection and server start
+How It Works
+- User Registration and Login
+- Users create accounts and authenticate with JWT.
+- After login, users can either create a new family or join an existing one.
+- Family Setup
+- A user can create a new family, becoming its founder.
+- The family is stored in MongoDB and linked to the user.
+- Adding Members
+- Members are added via the dashboard.
+- Relationships (parent, spouse, sibling, child) are automatically updated.
+- Viewing Data
+- The dashboard shows family details and members.
+- The business directory allows searching by business or industry.
+- The family tree visualizes parent-child relationships.
 
-
+Security
+- JWT-based authentication for all protected routes.
+- Passwords hashed with bcrypt.
+- Unauthorized requests are blocked and tokens are cleared.
 
 Future Enhancements
-- Role-based permissions (e.g., admin vs member).
-- File uploads for profile pictures or business logos.
-- Advanced search and filtering in the business directory.
-- Export family tree as PDF or image.
-- Improved mobile responsiveness.
+- Support for multiple families per user.
+- Advanced family tree visualization.
+- Role-based permissions (for example, family admin).
+- File uploads for member photos.
+- Improved UI/UX with modern frameworks such as Material UI or TailwindCSS.
 
-Contributing
-Contributions are welcome. To contribute:
-- Fork the repository
-- Create a feature branch
-- Submit a pull request
-
-License
-This project is licensed under the MIT License.
+Summary
+This project is a family relationship and business management system. It combines a React frontend with a Node.js/Express backend and MongoDB database to provide a secure, user-friendly way to manage family structures, member details, and entrepreneurial activities.
