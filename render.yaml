@@ -3,23 +3,23 @@ services:
   - type: web
     name: family-backend
     env: node
+    rootDir: backend   # adjust if your backend code is in /backend
     buildCommand: "npm install"
     startCommand: "node server.js"
-    autoDeploy: true
     plan: free
     envVars:
       - key: MONGO_URI
-        sync: false   # set in Render dashboard
+        sync: false
       - key: JWT_SECRET
-        sync: false   # set in Render dashboard
+        sync: false
 
   # Frontend service
-  - type: static
+  - type: web
     name: family-frontend
-    env: static
+    env: node
+    rootDir: frontend   # adjust if your frontend code is in /frontend
     buildCommand: "npm install && npm run build"
-    publishDir: "dist"   # use "build" if Create React App
-    autoDeploy: true
+    startCommand: "npx serve -s dist"   # use "build" if CRA
     plan: free
     envVars:
       - key: VITE_API_URL
