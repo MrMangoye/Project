@@ -3,9 +3,9 @@ services:
   - type: web
     name: family-backend
     env: node
-    rootDir: server
+    rootDir: server                # backend folder is "server"
     buildCommand: "npm install"
-    startCommand: "node server.js"
+    startCommand: "node server.js" # make sure server.js exists in /server
     plan: free
     envVars:
       - key: MONGO_URI
@@ -19,9 +19,9 @@ services:
   - type: web
     name: family-frontend
     env: node
-    rootDir: client
+    rootDir: client                # frontend folder is "client"
     buildCommand: "npm install && npm run build"
-    startCommand: "npx serve -s dist"
+    startCommand: "npx serve -s dist"   # Vite outputs to dist
     plan: free
     envVars:
       - key: VITE_API_URL
