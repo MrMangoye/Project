@@ -1,51 +1,57 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import API from '../services/api';
+import React, { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import API from "../services/api.js";
 
-export default function Login() {
-  const [form, setForm] = useState({ email: '', password: '' });
-  const [error, setError] = useState('');
+function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const navigate = useNavigate();
-
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const res = await API.post('/auth/login', form);
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('userId', res.data.user._id);
-      navigate('/');
+      const res = await API.post("/api/auth/login", { email, password });
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("user", JSON.stringify(res.data.user));
+
+      if (res.data.needsFamily) {
+        navigate("/choose-family");
+      } else {
+        if (!res.data.user.familyId) {
+          navigate("/setup-family");
+        } else {
+          navigate("/dashboard");
+        }
+      }
     } catch (err) {
-      setError('Invalid email or password');
+      console.error(err);
+      alert("Login failed");
     }
   };
 
   return (
-    <div className="login-container">
-      <h2>Login to Your Family Tree</h2>
-      <form onSubmit={handleSubmit}>
+    <div className="container">
+      <form onSubmit={handleSubmit} className="card">
+        <h2>Login</h2>
         <input
           type="email"
-          name="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           placeholder="Email"
-          value={form.email}
-          onChange={handleChange}
-          required
         />
         <input
           type="password"
-          name="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
           placeholder="Password"
-          value={form.password}
-          onChange={handleChange}
-          required
         />
-        <button type="submit">Login</button>
+        <button type="submit" className="primary">Login</button>
+        <p>
+          Don’t have an account? <Link to="/register">Register here</Link>
+        </p>
       </form>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
     </div>
   );
 }
+
+export default Login;

@@ -1,10 +1,15 @@
-const mongoose = require('mongoose');  // ✅ add this line
+const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
-  name: { type: String, required: true },   // changed from username
-  email: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  email: { 
+    type: String, 
+    required: true, 
+    unique: true, 
+    match: [/^\S+@\S+\.\S+$/, 'Invalid email format'] 
+  },
   password: { type: String, required: true },
   familyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Family' }
-});
+}, { timestamps: true });
 
-module.exports = mongoose.model('User', userSchema);  // ✅ add this line
+module.exports = mongoose.model('User', userSchema);

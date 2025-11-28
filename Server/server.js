@@ -23,11 +23,11 @@ app.use('/api/family', familyRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).send('Something broke!');
+  console.error(err.message, err.stack);
+  res.status(500).json({ error: 'Something broke!' });
 });
 
-// MongoDB connection (cleaned up)
+// MongoDB connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
     const PORT = process.env.PORT || 5000;
