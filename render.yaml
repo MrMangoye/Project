@@ -1,0 +1,26 @@
+services:
+  # Backend service
+  - type: web
+    name: family-backend
+    env: node
+    buildCommand: "npm install"
+    startCommand: "node server.js"
+    autoDeploy: true
+    plan: free
+    envVars:
+      - key: MONGO_URI
+        sync: false   # set in Render dashboard
+      - key: JWT_SECRET
+        sync: false   # set in Render dashboard
+
+  # Frontend service
+  - type: static
+    name: family-frontend
+    env: static
+    buildCommand: "npm install && npm run build"
+    publishDir: "dist"   # use "build" if Create React App
+    autoDeploy: true
+    plan: free
+    envVars:
+      - key: VITE_API_URL
+        value: "https://family-backend.onrender.com"
