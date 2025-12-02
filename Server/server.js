@@ -34,3 +34,15 @@ mongoose.connect(process.env.MONGO_URI)
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   })
   .catch(err => console.error('MongoDB connection error:', err));
+  const path = require("path");
+
+// Serve frontend in production
+if (process.env.NODE_ENV === "production") {
+  const clientPath = path.join(__dirname, "../client/dist"); // Vite
+  // const clientPath = path.join(__dirname, "../client/build"); // CRA
+  app.use(express.static(clientPath));
+
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(clientPath, "index.html"));
+  });
+}
