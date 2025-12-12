@@ -1,10 +1,9 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Dashboard from "./pages/Dashboard";
-import JoinFamily from "./pages/JoinFamily";
+import EnhancedRegister from "./pages/EnhancedRegister";
+import EnhancedDashboard from "./pages/EnhancedDashboard";
 import SetupFamily from "./pages/SetupFamily";
-import ChooseFamily from "./pages/ChooseFamily"; // ✅ new import
+import JoinFamily from "./pages/JoinFamily";
 
 function App() {
   const token = localStorage.getItem("token");
@@ -13,13 +12,10 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-
-        <Route path="/dashboard" element={token ? <Dashboard /> : <Navigate to="/" />} />
-        <Route path="/join-family" element={token ? <JoinFamily /> : <Navigate to="/" />} />
+        <Route path="/register" element={<EnhancedRegister />} />
+        <Route path="/dashboard" element={token ? <EnhancedDashboard /> : <Navigate to="/" />} />
         <Route path="/setup-family" element={token ? <SetupFamily /> : <Navigate to="/" />} />
-        <Route path="/choose-family" element={token ? <ChooseFamily /> : <Navigate to="/" />} />
-
+        <Route path="/join-family" element={token ? <JoinFamily /> : <Navigate to="/" />} />
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>

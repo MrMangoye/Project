@@ -1,206 +1,459 @@
 const express = require('express');
 const router = express.Router();
-
+const auth = require('../middleware/authMiddleware');
 const Family = require('../models/Family');
 const Person = require('../models/Person');
-const auth = require('../middleware/authMiddleware');
+const User = require('../models/User');
+const Event = require('../models/Event');
+const Story = require('../models/Story');
+const { validateFamilyCreate, validateMemberAdd } = require('../middleware/validation');
 
-/* -------------------- FAMILY ROUTES -------------------- */
-
-// Create a new family (protected)
-router.post('/create', auth, async (req, res) => {
-  const { name, description } = req.body;
+// Create family
+router.post('/create', auth, validateFamilyCreate, async (req, res) => {
   try {
+    const { name, description, motto, origin } = req.body;
+    
+    const existingUser = await User.findById(req.user._id);
+    if (existingUser.familyId) {
+      return res.status(400).json({ 
+        error: 'You already belong to a family' 
+      });
+    }
+
     const family = await Family.create({
       name,
       description,
-      createdBy: req.user._id
+      motto,
+      origin,
+      createdBy: req.user._id,
+      admins: [req.user._id]
     });
 
-    // ✅ Update the user with familyId
-    const User = require('../models/User');
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
-      { familyId: family._id },
+      { 
+        familyId: family._id,
+        role: 'admin',
+        isFamilyAdmin: true,
+        familyJoinDate: new Date()
+      },
       { new: true }
     ).select('-password');
 
-    // ✅ Ensure the user is added to the family members list
-    if (!family.members.includes(updatedUser._id)) {
-      family.members.push(updatedUser._id);
-      await family.save();
-    }
+    const person = await Person.create({
+      name: updatedUser.name,
+      email: updatedUser.email,
+      contactInfo: {
+        email: updatedUser.email,
+        phone: updatedUser.phone
+      },
+      familyId: family._id,
+      createdBy: req.user._id,
+      isSelf: true
+    });
 
-    res.json({ message: 'Family created successfully', family, user: updatedUser });
+    family.members.push(person._id);
+    await family.save();
+
+    res.status(201).json({
+      success: true,
+      message: 'Family created successfully',
+      family,
+      user: updatedUser,
+      person
+    });
   } catch (err) {
-    console.error("Create family error:", err.message, err.stack);
+    console.error('Create family error:', err);
+    if (err.code === 11000) {
+      return res.status(400).json({ error: 'Family name already exists' });
+    }
     res.status(500).json({ error: 'Failed to create family' });
   }
 });
 
-// Get a family by ID (with members populated)
+// Get family with details
 router.get('/families/:id', auth, async (req, res) => {
   try {
-    const family = await Family.findById(req.params.id).populate('members');
-    if (!family) return res.status(404).json({ error: 'Family not found' });
-    res.json(family);
+    const family = await Family.findById(req.params.id)
+      .populate('createdBy', 'name email')
+      .populate('admins', 'name email')
+      .populate({
+        path: 'members',
+        populate: [
+          { path: 'relationships.parents', select: 'name dob' },
+          { path: 'relationships.spouses', select: 'name dob' },
+          { path: 'relationships.children', select: 'name dob' }
+        ]
+      });
+
+    if (!family) {
+      return res.status(404).json({ error: 'Family not found' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (family.settings.privacy === 'private' && 
+        user.familyId.toString() !== family._id.toString()) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    res.json({
+      success: true,
+      family,
+      statistics: family.statistics
+    });
   } catch (err) {
-    console.error("Fetch family error:", err.message, err.stack);
+    console.error('Get family error:', err);
     res.status(500).json({ error: 'Failed to fetch family' });
   }
 });
 
-// Update family details
-router.put('/families/:id', auth, async (req, res) => {
+// Join family
+router.post('/join/:familyId', auth, async (req, res) => {
   try {
-    const family = await Family.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!family) return res.status(404).json({ error: 'Family not found' });
-    res.json(family);
+    const family = await Family.findById(req.params.familyId);
+    
+    if (!family) {
+      return res.status(404).json({ error: 'Family not found' });
+    }
+
+    const user = await User.findById(req.user._id);
+    
+    if (family.settings.requireApproval) {
+      family.pendingMembers = family.pendingMembers || [];
+      family.pendingMembers.push({
+        userId: user._id,
+        name: user.name,
+        email: user.email,
+        requestedAt: new Date()
+      });
+      await family.save();
+      
+      return res.json({
+        success: true,
+        message: 'Request sent. Waiting for admin approval.',
+        needsApproval: true
+      });
+    }
+
+    user.familyId = family._id;
+    user.familyJoinDate = new Date();
+    await user.save();
+
+    const person = await Person.create({
+      name: user.name,
+      email: user.email,
+      familyId: family._id,
+      createdBy: req.user._id,
+      isSelf: true
+    });
+
+    family.members.push(person._id);
+    await family.save();
+
+    res.json({
+      success: true,
+      message: 'Successfully joined family',
+      familyId: family._id,
+      user: user
+    });
   } catch (err) {
-    console.error("Update family error:", err.message, err.stack);
-    res.status(500).json({ error: 'Failed to update family' });
+    console.error('Join family error:', err);
+    res.status(500).json({ error: 'Failed to join family' });
   }
 });
 
-// Delete a family
-router.delete('/families/:id', auth, async (req, res) => {
+// Add member
+router.post('/add-member', auth, validateMemberAdd, async (req, res) => {
   try {
-    const family = await Family.findByIdAndDelete(req.params.id);
-    if (!family) return res.status(404).json({ error: 'Family not found' });
-    res.json({ message: 'Family deleted successfully' });
-  } catch (err) {
-    console.error("Delete family error:", err.message, err.stack);
-    res.status(500).json({ error: 'Failed to delete family' });
-  }
-});
+    const { 
+      name, dob, gender, occupation, bio, 
+      familyId, relationships, business, contactInfo,
+      education, achievements
+    } = req.body;
 
-/* -------------------- MEMBER ROUTES -------------------- */
+    const family = await Family.findById(familyId);
+    if (!family) {
+      return res.status(404).json({ error: 'Family not found' });
+    }
 
-// Add a member to a family (protected)
-router.post('/add-member', auth, async (req, res) => {
-  const { name, dob, gender, occupation, familyId, relationships, business } = req.body;
+    const user = await User.findById(req.user._id);
+    if (user.familyId.toString() !== familyId.toString()) {
+      return res.status(403).json({ error: 'You can only add members to your own family' });
+    }
 
-  try {
     const person = await Person.create({
       name,
       dob,
       gender,
       occupation,
+      bio,
       familyId,
-      relationships,
-      business,
-      createdBy: req.user._id
+      relationships: relationships || {},
+      business: business || {},
+      contactInfo: contactInfo || {},
+      education: education || [],
+      achievements: achievements || [],
+      createdBy: req.user._id,
+      addedBy: req.user._id
     });
 
-    // Add to family
-    await Family.findByIdAndUpdate(familyId, { $addToSet: { members: person._id } });
+    family.members.push(person._id);
+    await family.save();
 
-    // Handle parent relationships
-    if (relationships?.parent?.length) {
-      for (let parentId of relationships.parent) {
-        await Person.findByIdAndUpdate(parentId, { $addToSet: { child: person._id } });
+    await updateRelationships(person, relationships);
 
-        const parent = await Person.findById(parentId).populate('child');
-        if (parent?.child?.length) {
-          for (let sibling of parent.child) {
-            if (sibling._id.toString() !== person._id.toString()) {
-              await Person.findByIdAndUpdate(person._id, { $addToSet: { sibling: sibling._id } });
-              await Person.findByIdAndUpdate(sibling._id, { $addToSet: { sibling: person._id } });
-            }
-          }
-        }
-      }
-    }
+    const populatedPerson = await Person.findById(person._id)
+      .populate('relationships.parents', 'name dob gender')
+      .populate('relationships.spouses', 'name dob gender')
+      .populate('relationships.children', 'name dob gender')
+      .populate('relationships.siblings', 'name dob gender');
 
-    // Handle spouse relationships
-    if (relationships?.spouse?.length) {
-      for (let spouseId of relationships.spouse) {
-        await Person.findByIdAndUpdate(spouseId, { $addToSet: { spouse: person._id } });
-        await Person.findByIdAndUpdate(person._id, { $addToSet: { spouse: spouseId } });
-      }
-    }
-
-    // ✅ Handle sibling relationships
-    if (relationships?.sibling?.length) {
-      for (let siblingId of relationships.sibling) {
-        await Person.findByIdAndUpdate(siblingId, { $addToSet: { sibling: person._id } });
-        await Person.findByIdAndUpdate(person._id, { $addToSet: { sibling: siblingId } });
-      }
-    }
-
-    res.json(person);
+    res.status(201).json({
+      success: true,
+      message: 'Member added successfully',
+      person: populatedPerson
+    });
   } catch (err) {
-    console.error("Add member error:", err.message, err.stack);
+    console.error('Add member error:', err);
     res.status(500).json({ error: 'Failed to add member' });
   }
 });
 
-// Get a member by ID (with relationships populated)
+// Helper function to update relationships
+async function updateRelationships(person, relationships) {
+  if (!relationships) return;
+
+  if (relationships.parents && relationships.parents.length > 0) {
+    for (const parentId of relationships.parents) {
+      await Person.findByIdAndUpdate(parentId, {
+        $addToSet: { 'relationships.children': person._id }
+      });
+    }
+  }
+
+  if (relationships.spouses && relationships.spouses.length > 0) {
+    for (const spouseId of relationships.spouses) {
+      await Person.findByIdAndUpdate(spouseId, {
+        $addToSet: { 'relationships.spouses': person._id }
+      });
+    }
+  }
+
+  if (relationships.siblings && relationships.siblings.length > 0) {
+    for (const siblingId of relationships.siblings) {
+      await Person.findByIdAndUpdate(siblingId, {
+        $addToSet: { 'relationships.siblings': person._id }
+      });
+    }
+  }
+}
+
+// Get family tree with relationships
+router.get('/families/:id/tree-with-relations', auth, async (req, res) => {
+  try {
+    const family = await Family.findById(req.params.id).populate('members');
+    
+    const membersWithRelations = await Promise.all(
+      family.members.map(async (member) => {
+        const relationships = await calculateRelationships(member._id, family.members);
+        
+        const relationLabels = {};
+        for (const otherMember of family.members) {
+          if (otherMember._id.toString() === member._id.toString()) continue;
+          
+          const relation = getRelationshipLabel(member, otherMember, family.members);
+          if (relation) {
+            relationLabels[otherMember._id] = relation;
+          }
+        }
+        
+        return {
+          ...member.toObject(),
+          calculatedRelationships: relationships,
+          relationLabels
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      members: membersWithRelations
+    });
+  } catch (err) {
+    console.error('Tree with relations error:', err);
+    res.status(500).json({ error: 'Failed to generate family tree with relations' });
+  }
+});
+
+// Calculate relationships for a person
+async function calculateRelationships(personId, allMembers) {
+  const person = allMembers.find(m => m._id.toString() === personId.toString());
+  const relationships = {
+    parents: [],
+    children: [],
+    siblings: [],
+    spouses: [],
+    grandparents: [],
+    grandchildren: [],
+    unclesAunts: [],
+    nephewsNieces: [],
+    cousins: []
+  };
+
+  if (person.relationships?.parents) {
+    relationships.parents = person.relationships.parents;
+  }
+
+  relationships.children = allMembers.filter(member => 
+    member.relationships?.parents?.some(parentId => 
+      parentId.toString() === personId.toString()
+    )
+  ).map(m => m._id);
+
+  if (person.relationships?.parents?.length > 0) {
+    relationships.siblings = allMembers.filter(member => {
+      if (member._id.toString() === personId.toString()) return false;
+      return member.relationships?.parents?.some(parentId => 
+        person.relationships.parents.some(pId => 
+          pId.toString() === parentId.toString()
+        )
+      );
+    }).map(m => m._id);
+  }
+
+  if (person.relationships?.spouses) {
+    relationships.spouses = person.relationships.spouses;
+  }
+
+  return relationships;
+}
+
+// Get relationship label between two people
+function getRelationshipLabel(person1, person2, allMembers) {
+  if (person1.relationships?.parents?.some(p => p.toString() === person2._id.toString())) {
+    return person2.gender === 'male' ? 'Father' : 'Mother';
+  }
+  
+  const person1Children = allMembers.filter(m => 
+    m.relationships?.parents?.some(p => p.toString() === person1._id.toString())
+  );
+  if (person1Children.some(c => c._id.toString() === person2._id.toString())) {
+    return person2.gender === 'male' ? 'Son' : 'Daughter';
+  }
+  
+  const person1Siblings = allMembers.filter(m => {
+    if (m._id.toString() === person1._id.toString()) return false;
+    return m.relationships?.parents?.some(p => 
+      person1.relationships?.parents?.some(p1 => p1.toString() === p.toString())
+    );
+  });
+  
+  if (person1Siblings.some(s => s._id.toString() === person2._id.toString())) {
+    return person2.gender === 'male' ? 'Brother' : 'Sister';
+  }
+  
+  if (person1.relationships?.spouses?.some(s => s.toString() === person2._id.toString())) {
+    return person2.gender === 'male' ? 'Husband' : 'Wife';
+  }
+  
+  return null;
+}
+
+// Get member
 router.get('/members/:id', auth, async (req, res) => {
   try {
     const person = await Person.findById(req.params.id)
-      .populate('familyId')
-      .populate('relationships.parent')
-      .populate('relationships.child')
-      .populate('relationships.spouse')
-      .populate('relationships.sibling');
+      .populate('familyId', 'name')
+      .populate('relationships.parents')
+      .populate('relationships.children')
+      .populate('relationships.spouses')
+      .populate('relationships.siblings')
+      .populate('createdBy', 'name email');
 
-    if (!person) return res.status(404).json({ error: 'Member not found' });
-    res.json(person);
+    if (!person) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (user.familyId.toString() !== person.familyId.toString()) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    res.json({
+      success: true,
+      person
+    });
   } catch (err) {
-    console.error("Fetch member error:", err.message, err.stack);
+    console.error('Get member error:', err);
     res.status(500).json({ error: 'Failed to fetch member' });
   }
 });
 
-// Update member details
-router.put('/members/:id', auth, async (req, res) => {
+// Search members
+router.get('/members/search', auth, async (req, res) => {
   try {
-    const person = await Person.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!person) return res.status(404).json({ error: 'Member not found' });
-    res.json(person);
+    const { query, familyId } = req.query;
+    
+    if (!familyId) {
+      return res.status(400).json({ error: 'Family ID is required' });
+    }
+
+    const searchConditions = {
+      familyId,
+      $or: [
+        { name: { $regex: query, $options: 'i' } },
+        { occupation: { $regex: query, $options: 'i' } },
+        { 'business.name': { $regex: query, $options: 'i' } }
+      ]
+    };
+
+    const members = await Person.find(searchConditions)
+      .select('name dob gender occupation business')
+      .limit(20);
+
+    res.json({
+      success: true,
+      results: members
+    });
   } catch (err) {
-    console.error("Update member error:", err.message, err.stack);
-    res.status(500).json({ error: 'Failed to update member' });
+    console.error('Search error:', err);
+    res.status(500).json({ error: 'Search failed' });
   }
 });
 
-// Delete a member
-router.delete('/members/:id', auth, async (req, res) => {
+// Update member relationships
+router.post('/members/:id/update-relationships', auth, async (req, res) => {
   try {
-    const person = await Person.findByIdAndDelete(req.params.id);
-    if (!person) return res.status(404).json({ error: 'Member not found' });
-    res.json({ message: 'Member deleted successfully' });
-  } catch (err) {
-    console.error("Delete member error:", err.message, err.stack);
-    res.status(500).json({ error: 'Failed to delete member' });
-  }
-});
-
-// Join an existing family (protected)
-router.post('/join/:familyId', auth, async (req, res) => {
-  try {
-    const family = await Family.findById(req.params.familyId);
-    if (!family) {
-      return res.status(404).json({ error: 'Family not found' });
+    const { relationships } = req.body;
+    const person = await Person.findById(req.params.id);
+    
+    person.relationships = relationships;
+    await person.save();
+    
+    if (relationships.parents) {
+      for (const parentId of relationships.parents) {
+        await Person.findByIdAndUpdate(parentId, {
+          $addToSet: { 'relationships.children': person._id }
+        });
+      }
     }
-
-    const User = require('../models/User');
-    const updatedUser = await User.findByIdAndUpdate(
-      req.user._id,
-      { familyId: family._id },
-      { new: true }
-    ).select('-password');
-
-    if (!family.members.includes(updatedUser._id)) {
-      family.members.push(updatedUser._id);
-      await family.save();
+    
+    if (relationships.spouses) {
+      for (const spouseId of relationships.spouses) {
+        await Person.findByIdAndUpdate(spouseId, {
+          $addToSet: { 'relationships.spouses': person._id }
+        });
+      }
     }
-
-    res.json({ message: 'Joined family successfully', user: updatedUser });
+    
+    res.json({
+      success: true,
+      message: 'Relationships updated successfully',
+      person
+    });
   } catch (err) {
-    console.error("Join family error:", err.message, err.stack);
-    res.status(500).json({ error: 'Failed to join family' });
+    console.error('Update relationships error:', err);
+    res.status(500).json({ error: 'Failed to update relationships' });
   }
 });
 

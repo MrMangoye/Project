@@ -1,25 +1,37 @@
 import axios from 'axios';
 
-// Use environment variable if available, otherwise default to localhost
-const API = axios.create({ 
-  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:5000' 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
+const API = axios.create({
+  baseURL: API_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
 });
 
-API.interceptors.request.use(config => {
-  const token = localStorage.getItem('token');
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+// Request interceptor to add token
+API.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
+// Response interceptor for error handling
 API.interceptors.response.use(
-  res => res,
-  err => {
-    if (err.response?.status === 401) {
+  (response) => response.data,
+  (error) => {
+    if (error.response?.status === 401) {
       localStorage.removeItem('token');
-      localStorage.removeItem('user');   // clear user object if unauthorized
+      localStorage.removeItem('user');
       window.location.href = '/';
     }
-    return Promise.reject(err);
+    return Promise.reject(error.response?.data || { error: 'Network error' });
   }
 );
 
