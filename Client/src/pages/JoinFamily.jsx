@@ -1,6 +1,7 @@
+// pages/JoinFamily.jsx
 import React, { useState } from "react";
-import API from "../services/api.js";
 import { useNavigate } from "react-router-dom";
+import API from "../services/api.js";
 import { Link as LinkIcon, Search, Users } from "lucide-react";
 
 export default function JoinFamily() {
@@ -15,18 +16,24 @@ export default function JoinFamily() {
     setError("");
     setSuccess("");
     setLoading(true);
-    
+
     try {
       const res = await API.post(`/family/join/${familyCode}`);
-
+      
       if (res.needsApproval) {
-        setSuccess(res.message);
+        setSuccess(res.message || "Request sent for approval. Waiting for admin approval.");
         setTimeout(() => navigate('/dashboard'), 3000);
       } else {
+        // Update user with family info
         const user = JSON.parse(localStorage.getItem("user"));
-        const updatedUser = { ...user, familyId: res.familyId };
+        const updatedUser = { 
+          ...user, 
+          familyId: res.familyId || res.family?._id,
+          familyName: res.family?.name
+        };
         localStorage.setItem("user", JSON.stringify(updatedUser));
-        
+
+        // Navigate to dashboard
         navigate("/dashboard");
       }
     } catch (err) {
@@ -103,10 +110,11 @@ export default function JoinFamily() {
                 >
                   Create New Instead
                 </button>
+                
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:opacity-90 transition"
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
                 >
                   {loading ? 'Joining...' : 'Join Family'}
                 </button>

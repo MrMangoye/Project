@@ -1,6 +1,7 @@
+// pages/SetupFamily.jsx
 import React, { useState } from "react";
-import API from "../services/api.js";
 import { useNavigate } from "react-router-dom";
+import API from "../services/api.js";
 import { Home, Users, Globe, Shield } from "lucide-react";
 
 export default function SetupFamily() {
@@ -18,17 +19,20 @@ export default function SetupFamily() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    
-    try {
-      const res = await API.post(
-        "/family/create",
-        form
-      );
 
+    try {
+      const res = await API.post("/family/create", form);
+
+      // Update user with family info
       const user = JSON.parse(localStorage.getItem("user"));
-      const updatedUser = { ...user, familyId: res.family._id };
+      const updatedUser = { 
+        ...user, 
+        familyId: res.family._id,
+        familyName: res.family.name
+      };
       localStorage.setItem("user", JSON.stringify(updatedUser));
 
+      // Navigate to dashboard
       navigate("/dashboard");
     } catch (err) {
       console.error("Setup family error:", err);
@@ -106,7 +110,7 @@ export default function SetupFamily() {
                   Privacy Settings
                 </label>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div 
+                  <div
                     className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${form.privacy === 'private' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}
                     onClick={() => setForm({...form, privacy: 'private'})}
                   >
@@ -117,7 +121,7 @@ export default function SetupFamily() {
                     </div>
                   </div>
                   
-                  <div 
+                  <div
                     className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${form.privacy === 'invite-only' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}
                     onClick={() => setForm({...form, privacy: 'invite-only'})}
                   >
@@ -128,7 +132,7 @@ export default function SetupFamily() {
                     </div>
                   </div>
                   
-                  <div 
+                  <div
                     className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${form.privacy === 'public' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}
                     onClick={() => setForm({...form, privacy: 'public'})}
                   >
@@ -149,10 +153,11 @@ export default function SetupFamily() {
                 >
                   Join Existing Family Instead
                 </button>
+                
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:opacity-90 transition"
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
                 >
                   {loading ? 'Creating...' : 'Create Family'}
                 </button>

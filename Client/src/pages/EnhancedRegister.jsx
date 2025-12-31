@@ -1,8 +1,9 @@
+// pages/EnhancedRegister.jsx
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import API from '../services/api';
-import { 
-  Users, Home, UserPlus, Link as LinkIcon, 
+import {
+  Users, Home, UserPlus, Link as LinkIcon,
   ChevronRight, CheckCircle, Shield, ArrowLeft
 } from 'lucide-react';
 
@@ -19,53 +20,72 @@ function EnhancedRegister() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const from = location.state?.from?.pathname || '/dashboard';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
     setLoading(true);
-
+    
     try {
       if (step === 1) {
+        // Account creation
         const res = await API.post('/auth/register', {
           name: form.name,
           email: form.email,
           password: form.password
         });
-
+        
         localStorage.setItem('token', res.token);
         localStorage.setItem('user', JSON.stringify(res.user));
         
         setStep(2);
         setSuccess('Account created successfully!');
+        
       } else if (step === 2) {
+        // Family setup in registration
         if (!form.familyChoice) {
           setError('Please choose an option');
           return;
         }
-
-        const res = await API.post('/auth/register-with-family', {
-          name: form.name,
-          email: form.email,
-          password: form.password,
-          familyChoice: form.familyChoice,
-          familyName: form.familyName,
-          familyCode: form.familyCode
-        });
-
-        if (res.needsApproval) {
-          setSuccess(res.message);
-          setTimeout(() => navigate('/dashboard'), 2000);
-        } else {
-          localStorage.setItem('token', res.token);
-          localStorage.setItem('user', JSON.stringify(res.user));
-          setStep(3);
+        
+        let res;
+        if (form.familyChoice === 'create') {
+          res = await API.post('/family/create', {
+            name: form.familyName
+          });
+        } else if (form.familyChoice === 'join') {
+          res = await API.post(`/family/join/${form.familyCode}`);
         }
+        
+        if (res.needsApproval) {
+          setSuccess(res.message || 'Request sent for approval');
+          setTimeout(() => navigate(from), 2000);
+        } else {
+          // Update user with family info
+          const user = JSON.parse(localStorage.getItem('user'));
+          const updatedUser = { 
+            ...user, 
+            familyId: res.family?._id || res.familyId,
+            familyName: form.familyName || res.family?.name
+          };
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          
+          if (res.token) {
+            localStorage.setItem('token', res.token);
+          }
+          
+          setStep(3);
+          setSuccess('Family setup completed!');
+        }
+        
       } else if (step === 3) {
-        navigate('/dashboard');
+        // Final step - go to dashboard
+        navigate(from);
       }
     } catch (err) {
       console.error('Registration error:', err);
@@ -95,7 +115,7 @@ function EnhancedRegister() {
             ))}
           </div>
         </div>
-
+        
         <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
           <div className="md:flex">
             <div className="md:w-2/5 bg-gradient-to-br from-blue-600 to-purple-600 p-8 text-white hidden md:block">
@@ -132,7 +152,7 @@ function EnhancedRegister() {
                 </div>
               </div>
             </div>
-
+            
             <div className="md:w-3/5 p-6 sm:p-8">
               {step > 1 && (
                 <button
@@ -143,30 +163,31 @@ function EnhancedRegister() {
                   Back
                 </button>
               )}
-
+              
               <h2 className="text-2xl font-bold text-gray-800 mb-2">
                 {step === 1 && 'Create Your Account'}
                 {step === 2 && 'Connect to Family'}
                 {step === 3 && 'Setup Complete!'}
               </h2>
+              
               <p className="text-gray-600 mb-8">
                 {step === 1 && 'Start your family journey with us'}
                 {step === 2 && 'Create new or join existing family'}
                 {step === 3 && 'Your family network is ready'}
               </p>
-
+              
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
                   {error}
                 </div>
               )}
-
+              
               {success && (
                 <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">
                   {success}
                 </div>
               )}
-
+              
               <form onSubmit={handleSubmit}>
                 {step === 1 && (
                   <div className="space-y-4">
@@ -216,11 +237,11 @@ function EnhancedRegister() {
                     </div>
                   </div>
                 )}
-
+                
                 {step === 2 && (
                   <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div 
+                      <div
                         className={`p-6 border-2 rounded-xl cursor-pointer transition-all ${form.familyChoice === 'create' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}
                         onClick={() => setForm({...form, familyChoice: 'create'})}
                       >
@@ -233,7 +254,7 @@ function EnhancedRegister() {
                         </div>
                       </div>
                       
-                      <div 
+                      <div
                         className={`p-6 border-2 rounded-xl cursor-pointer transition-all ${form.familyChoice === 'join' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-blue-300'}`}
                         onClick={() => setForm({...form, familyChoice: 'join'})}
                       >
@@ -246,11 +267,11 @@ function EnhancedRegister() {
                         </div>
                       </div>
                     </div>
-
+                    
                     {form.familyChoice === 'create' && (
                       <div className="animate-fadeIn">
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Family Name
+                          Family Name *
                         </label>
                         <input
                           type="text"
@@ -262,11 +283,11 @@ function EnhancedRegister() {
                         />
                       </div>
                     )}
-
+                    
                     {form.familyChoice === 'join' && (
                       <div className="animate-fadeIn">
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Family Code
+                          Family Code *
                         </label>
                         <input
                           type="text"
@@ -283,7 +304,7 @@ function EnhancedRegister() {
                     )}
                   </div>
                 )}
-
+                
                 {step === 3 && (
                   <div className="text-center py-8">
                     <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -320,12 +341,12 @@ function EnhancedRegister() {
                     </div>
                   </div>
                 )}
-
+                
                 <div className="mt-8">
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-6 rounded-lg font-medium hover:opacity-90 transition-all flex items-center justify-center"
+                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-4 px-6 rounded-lg font-medium hover:opacity-90 transition-all flex items-center justify-center disabled:opacity-50"
                   >
                     {loading ? (
                       <span>Processing...</span>

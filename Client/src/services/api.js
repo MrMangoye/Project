@@ -1,16 +1,17 @@
 import axios from 'axios';
 
+// Use environment variable or default to localhost for development
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 const API = axios.create({
   baseURL: API_URL,
-  timeout: 10000,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json'
   }
 });
 
-// Request interceptor to add token
+// Request interceptor
 API.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -22,16 +23,24 @@ API.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor for error handling
+// Response interceptor
 API.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    console.error('API Error:', error.response?.status, error.message);
+    
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/';
     }
-    return Promise.reject(error.response?.data || { error: 'Network error' });
+    
+    return Promise.reject(
+      error.response?.data || { 
+        error: error.message || 'Network error',
+        status: error.response?.status
+      }
+    );
   }
 );
 

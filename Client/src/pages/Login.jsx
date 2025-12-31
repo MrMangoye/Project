@@ -1,5 +1,6 @@
+// pages/Login.jsx
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import API from "../services/api.js";
 import { LogIn, Mail, Lock, Users } from "lucide-react";
 
@@ -8,22 +9,28 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const from = location.state?.from?.pathname || "/dashboard";
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
-    
+
     try {
       const res = await API.post("/auth/login", form);
-      
+
       localStorage.setItem("token", res.token);
       localStorage.setItem("user", JSON.stringify(res.user));
 
-      if (res.needsFamily || !res.user.familyId) {
-        navigate("/setup-family");
+      // Enhanced redirect logic
+      if (res.user.familyId) {
+        // User has a family, go to intended destination or dashboard
+        navigate(from, { replace: true });
       } else {
-        navigate("/dashboard");
+        // User needs to setup family
+        navigate("/setup-family", { state: { from: location } });
       }
     } catch (err) {
       console.error("Login error:", err);
@@ -65,7 +72,7 @@ function Login() {
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="john@example.com"
                     value={form.email}
-                    onChange={(e) => setForm({...form, email: e.target.value})}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
                   />
                 </div>
               </div>
@@ -82,7 +89,7 @@ function Login() {
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     placeholder="••••••••"
                     value={form.password}
-                    onChange={(e) => setForm({...form, password: e.target.value})}
+                    onChange={(e) => setForm({ ...form, password: e.target.value })}
                   />
                 </div>
               </div>
@@ -90,7 +97,7 @@ function Login() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg font-medium hover:opacity-90 transition-all flex items-center justify-center"
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg font-medium hover:opacity-90 transition-all flex items-center justify-center disabled:opacity-50"
               >
                 {loading ? (
                   <span>Signing in...</span>

@@ -1,30 +1,39 @@
 services:
   # Backend service
   - type: web
-    name: family-backend
+    name: family-tree-api
     env: node
-    rootDir: Server                # backend folder is "server"
-    buildCommand: "npm install"
-    startCommand: "node server.js" # make sure server.js exists in /server
-    plan: free
+    region: oregon  # or your preferred region
+    buildCommand: cd server && npm install
+    startCommand: cd server && npm start
     envVars:
-      - key: MONGO_URI
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
         sync: false
       - key: JWT_SECRET
         sync: false
-      - key: NODE_VERSION
-        value: 18
-
+      - key: PORT
+        value: 5000
+    
   # Frontend service
   - type: web
-    name: family-frontend
+    name: family-tree-client
     env: node
-    rootDir: client/client               # frontend folder is "client"
-    buildCommand: "npm install && npm run build"
-    startCommand: "npx serve -s dist"   # Vite outputs to dist
-    plan: free
+    region: oregon
+    buildCommand: cd client && npm install && npm run build
+    staticPublishPath: ./client/dist
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=3600
+    routes:
+      - type: rewrite
+        source: /api/*
+        destination: http://family-tree-api.onrender.com/api/*
+      - type: rewrite
+        source: /assets/*
+        destination: http://family-tree-api.onrender.com/assets/*
     envVars:
       - key: VITE_API_URL
-        value: "https://family-backend.onrender.com"
-      - key: NODE_VERSION
-        value: 18
+        value: https://family-tree-api.onrender.com/api
