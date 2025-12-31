@@ -1,0 +1,28 @@
+{
+  "name": "project",
+  "version": "1.0.0",
+  "description": "Family Management Application\r Overview\r This project is a full-stack family management system that allows users to create, join, and manage family groups. It provides tools to add family members with detailed personal information, track relationships, and manage business details associated with family members. The application also includes a dashboard for viewing family data, a business directory, and a family tree visualization.\r The purpose of this project is to make family history, relationships, and entrepreneurial activities easy to organize and accessible in one place.",
+  "main": "tailwing.config.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MrMangoye/Project.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/MrMangoye/Project/issues"
+  },
+  "homepage": "https://github.com/MrMangoye/Project#readme",
+  "dependencies": {
+    "lucide-react": "^0.562.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "recharts": "^3.6.0",
+    "vite": "^7.3.0"
+  }
+}
