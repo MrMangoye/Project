@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import API from "../services/api";
 import { 
-  Users, Family, Heart, Baby, UserPlus, Network, 
+  Users, Heart, Baby, UserPlus, Network, 
   GitBranch, GitMerge, GitPullRequest, Share2, Search,
   Plus, Bell, Download, Filter, Calendar, BookOpen,
   TrendingUp, BarChart3, Home, Car, DollarSign, Pill,
@@ -14,7 +14,7 @@ import BusinessDirectory from "../components/BusinessDirectory";
 import EventsCalendar from "../components/EventsCalendar";
 import FamilyStories from "../components/FamilyStories";
 import AnalyticsDashboard from "../components/AnalyticsDashboard";
-import FamilyFinance from "../components/FamilyFinance";
+import FamilyFinance from "../components/FamilyFinancial";
 import FamilyHealth from "../components/FamilyHealth";
 
 function EnhancedDashboard() {
@@ -238,7 +238,7 @@ function EnhancedDashboard() {
             
             <div className="bg-white p-4 rounded-xl shadow">
               <div className="flex items-center">
-                <Family className="text-green-600 mr-3" />
+                <Users className="text-green-600 mr-3" />
                 <div>
                   <p className="text-sm text-gray-600">Generations</p>
                   <p className="text-xl font-bold">3</p>

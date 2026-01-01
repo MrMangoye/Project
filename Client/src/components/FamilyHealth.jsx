@@ -258,3 +258,4 @@ function FamilyHealth({ familyId }) {
     </div>
   );
 }
+export default FamilyHealth;
