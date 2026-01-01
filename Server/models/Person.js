@@ -63,13 +63,9 @@ const personSchema = new mongoose.Schema({
   familyId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Family', 
-    required: true,
-    index: true 
+    required: true
   },
-  createdBy: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User' 
-  },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   isSelf: { type: Boolean, default: false },
   addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   relationshipVerified: { type: Boolean, default: false },
@@ -110,7 +106,7 @@ personSchema.pre('save', function(next) {
   next();
 });
 
-// Indexes
+// Indexes (removed duplicate familyId index)
 personSchema.index({ name: 'text', occupation: 'text', 'business.name': 'text' });
 personSchema.index({ familyId: 1, dob: 1 });
 personSchema.index({ tags: 1 });

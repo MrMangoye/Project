@@ -24,11 +24,12 @@ const storySchema = new mongoose.Schema({
   likes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   comments: [{
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    content: { type: String, required: true },
-    createdAt: { type: Date, default: Date.now }
+    content: { type: String, required: true }
+    // removed createdAt since schema timestamps already handle this
   }]
 }, { timestamps: true });
 
+// Indexes (removed duplicate familyId-only index)
 storySchema.index({ title: 'text', content: 'text' });
 storySchema.index({ familyId: 1, createdAt: -1 });
 storySchema.index({ type: 1 });

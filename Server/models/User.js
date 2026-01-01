@@ -29,8 +29,7 @@ const userSchema = new mongoose.Schema({
   },
   familyId: { 
     type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Family',
-    index: true
+    ref: 'Family'
   },
   isFamilyAdmin: { type: Boolean, default: false },
   familyJoinDate: { type: Date },
@@ -73,9 +72,7 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// Indexes
-userSchema.index({ email: 1 }, { unique: true });
-userSchema.index({ familyId: 1 });
-userSchema.index({ createdAt: -1 });
+// Indexes (removed duplicates)
+userSchema.index({ createdAt: -1 }); // keep only if you query/sort by createdAt often
 
 module.exports = mongoose.model('User', userSchema);

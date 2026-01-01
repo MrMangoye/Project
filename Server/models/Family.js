@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
 
 const familySchema = new mongoose.Schema({
-  name: { 
-    type: String, 
+  name: {
+    type: String,
     required: [true, 'Family name is required'],
     trim: true,
     unique: true
@@ -18,10 +18,10 @@ const familySchema = new mongoose.Schema({
   familyTreeData: { type: mongoose.Schema.Types.Mixed },
   coverImage: { type: String },
   profileImage: { type: String },
-  createdBy: { 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'User', 
-    required: true 
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
   members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Person' }],
   admins: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
@@ -33,8 +33,8 @@ const familySchema = new mongoose.Schema({
     status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' }
   }],
   settings: {
-    privacy: { 
-      type: String, 
+    privacy: {
+      type: String,
       enum: ['private', 'public', 'invite-only'],
       default: 'private'
     },
@@ -54,8 +54,11 @@ const familySchema = new mongoose.Schema({
     expires: Date,
     status: { type: String, enum: ['pending', 'accepted', 'expired'], default: 'pending' }
   }],
-  accessCode: { type: String, unique: true }
-}, { 
+  accessCode: { 
+    type: String, 
+    unique: true  // KEEP THIS - creates unique index
+  }
+}, {
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
@@ -74,11 +77,13 @@ familySchema.virtual('memberCount').get(function() {
   return this.members?.length || 0;
 });
 
-// Indexes
+// Indexes - REMOVE DUPLICATES:
 familySchema.index({ name: 'text', description: 'text' });
 familySchema.index({ createdBy: 1 });
 familySchema.index({ 'settings.privacy': 1 });
 familySchema.index({ createdAt: -1 });
-familySchema.index({ accessCode: 1 }, { unique: true });
+
+// REMOVE THIS DUPLICATE:
+// familySchema.index({ accessCode: 1 }, { unique: true }); // DUPLICATE - remove
 
 module.exports = mongoose.model('Family', familySchema);
