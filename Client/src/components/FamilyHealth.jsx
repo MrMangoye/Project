@@ -10,6 +10,79 @@ function FamilyHealth({ familyId }) {
     caregivers: []
   });
 
+  // Helper function to safely calculate deductible percentage
+  const calculateDeductiblePercentage = (deductible) => {
+    if (!deductible || deductible === '—' || deductible === 'N/A') {
+      return 0;
+    }
+    
+    try {
+      // Check if deductible has the expected format (e.g., "$1,200/$2,000")
+      if (!deductible.includes('/')) {
+        return 0;
+      }
+      
+      const [usedStr, totalStr] = deductible.split('/');
+      
+      // Safely parse the amounts
+      const parseAmount = (str) => {
+        if (!str) return 0;
+        // Remove $ and commas, then parse
+        const cleaned = str.replace('$', '').replace(',', '').trim();
+        const num = parseInt(cleaned, 10);
+        return isNaN(num) ? 0 : num;
+      };
+      
+      const usedAmount = parseAmount(usedStr);
+      const totalAmount = parseAmount(totalStr);
+      
+      if (totalAmount <= 0) return 0;
+      
+      const percentage = (usedAmount / totalAmount) * 100;
+      return Math.min(Math.max(percentage, 0), 100); // Clamp between 0-100%
+      
+    } catch (error) {
+      console.error('Error calculating deductible percentage:', error);
+      return 0;
+    }
+  };
+
+  // Insurance data with safe deductible values
+  const insuranceData = [
+    { 
+      member: 'John Smith', 
+      provider: 'Blue Cross', 
+      plan: 'Gold PPO', 
+      deductible: '$1,200/$2,000', 
+      renewal: 'Dec 31, 2024', 
+      status: 'Active' 
+    },
+    { 
+      member: 'Sarah Smith', 
+      provider: 'Aetna', 
+      plan: 'Silver HMO', 
+      deductible: '$800/$1,500', 
+      renewal: 'Nov 15, 2024', 
+      status: 'Active' 
+    },
+    { 
+      member: 'Grandma Smith', 
+      provider: 'Medicare', 
+      plan: 'Advantage', 
+      deductible: '$450/$1,000', 
+      renewal: 'Annual', 
+      status: 'Active' 
+    },
+    { 
+      member: 'Uncle Bob', 
+      provider: 'None', 
+      plan: '—', 
+      deductible: '—', 
+      renewal: '—', 
+      status: 'Needs Coverage' 
+    }
+  ];
+
   return (
     <div className="space-y-6">
       {/* Health Dashboard */}
@@ -64,10 +137,34 @@ function FamilyHealth({ familyId }) {
         
         <div className="space-y-3">
           {[
-            { person: 'Grandma Smith', medication: 'Lisinopril 10mg', time: '8:00 AM', days: 'Daily', taken: true },
-            { person: 'Dad Johnson', medication: 'Metformin 500mg', time: '9:00 AM', days: 'Mon-Fri', taken: true },
-            { person: 'Mom Johnson', medication: 'Levothyroxine', time: '7:00 AM', days: 'Daily', taken: false },
-            { person: 'Uncle Bob', medication: 'Warfarin 5mg', time: '6:00 PM', days: 'Daily', taken: null }
+            { 
+              person: 'Grandma Smith', 
+              medication: 'Lisinopril 10mg', 
+              time: '8:00 AM', 
+              days: 'Daily', 
+              taken: true 
+            },
+            { 
+              person: 'Dad Johnson', 
+              medication: 'Metformin 500mg', 
+              time: '9:00 AM', 
+              days: 'Mon-Fri', 
+              taken: true 
+            },
+            { 
+              person: 'Mom Johnson', 
+              medication: 'Levothyroxine', 
+              time: '7:00 AM', 
+              days: 'Daily', 
+              taken: false 
+            },
+            { 
+              person: 'Uncle Bob', 
+              medication: 'Warfarin 5mg', 
+              time: '6:00 PM', 
+              days: 'Daily', 
+              taken: null 
+            }
           ].map((med, idx) => (
             <div key={idx} className="flex items-center justify-between p-4 border rounded-lg">
               <div className="flex items-center">
@@ -198,7 +295,7 @@ function FamilyHealth({ familyId }) {
         </div>
       </div>
 
-      {/* Health Insurance Tracker */}
+      {/* Health Insurance Tracker - FIXED SECTION */}
       <div className="bg-white p-6 rounded-xl shadow">
         <h3 className="text-xl font-bold mb-4">🏥 Insurance & Coverage</h3>
         
@@ -215,47 +312,54 @@ function FamilyHealth({ familyId }) {
               </tr>
             </thead>
             <tbody>
-              {[
-                { member: 'John Smith', provider: 'Blue Cross', plan: 'Gold PPO', deductible: '$1,200/$2,000', renewal: 'Dec 31, 2024', status: 'Active' },
-                { member: 'Sarah Smith', provider: 'Aetna', plan: 'Silver HMO', deductible: '$800/$1,500', renewal: 'Nov 15, 2024', status: 'Active' },
-                { member: 'Grandma Smith', provider: 'Medicare', plan: 'Advantage', deductible: '$450/$1,000', renewal: 'Annual', status: 'Active' },
-                { member: 'Uncle Bob', provider: 'None', plan: '—', deductible: '—', renewal: '—', status: 'Needs Coverage' }
-              ].map((insurance, idx) => (
-                <tr key={idx} className="border-t hover:bg-gray-50">
-                  <td className="p-3 font-medium">{insurance.member}</td>
-                  <td className="p-3">{insurance.provider}</td>
-                  <td className="p-3">
-                    <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm">
-                      {insurance.plan}
-                    </span>
-                  </td>
-                  <td className="p-3">
-                    <div className="flex items-center">
-                      <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
-                        <div 
-                          className="bg-green-500 h-2 rounded-full"
-                          style={{ width: `${(parseInt(insurance.deductible.split('/')[0].replace('$', '').replace(',', '')) / parseInt(insurance.deductible.split('/')[1].replace('$', '').replace(',', ''))) * 100}%` }}
-                        ></div>
+              {insuranceData.map((insurance, idx) => {
+                const deductiblePercentage = calculateDeductiblePercentage(insurance.deductible);
+                
+                return (
+                  <tr key={idx} className="border-t hover:bg-gray-50">
+                    <td className="p-3 font-medium">{insurance.member}</td>
+                    <td className="p-3">{insurance.provider}</td>
+                    <td className="p-3">
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm">
+                        {insurance.plan}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      <div className="flex items-center">
+                        <div className="w-24 bg-gray-200 rounded-full h-2 mr-2">
+                          <div 
+                            className="bg-green-500 h-2 rounded-full"
+                            style={{ width: `${deductiblePercentage}%` }}
+                          ></div>
+                        </div>
+                        <span className="text-sm">{insurance.deductible}</span>
                       </div>
-                      {insurance.deductible}
-                    </div>
-                  </td>
-                  <td className="p-3">{insurance.renewal}</td>
-                  <td className="p-3">
-                    <span className={`px-2 py-1 rounded text-sm ${
-                      insurance.status === 'Active' ? 'bg-green-100 text-green-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {insurance.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="p-3">{insurance.renewal}</td>
+                    <td className="p-3">
+                      <span className={`px-2 py-1 rounded text-sm ${
+                        insurance.status === 'Active' ? 'bg-green-100 text-green-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {insurance.status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
+        </div>
+        
+        <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+          <p className="text-sm text-blue-700">
+            <strong>Note:</strong> Deductible progress shows how much of the annual deductible has been used. 
+            Values are calculated from insurance claims data.
+          </p>
         </div>
       </div>
     </div>
   );
 }
+
 export default FamilyHealth;

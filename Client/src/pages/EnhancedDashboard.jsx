@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback } from "react";
 import API from "../services/api";
-import { 
-  Users, Heart, Baby, UserPlus, Network, 
+import {
+  Users, Heart, Baby, UserPlus, Network,
   GitBranch, GitMerge, GitPullRequest, Share2, Search,
   Plus, Bell, Download, Filter, Calendar, BookOpen,
   TrendingUp, BarChart3, Home, Car, DollarSign, Pill,
   Activity, Stethoscope, AlertCircle, CheckCircle
 } from "lucide-react";
-
 import AddMember from "../components/AddMember";
 import FamilyTree from "../components/FamilyTree";
 import BusinessDirectory from "../components/BusinessDirectory";
@@ -28,51 +27,113 @@ function EnhancedDashboard() {
   const [relations, setRelations] = useState([]);
   const [selectedMember, setSelectedMember] = useState(null);
 
+  // DEBUG: Log initial state
+  console.log("=== EnhancedDashboard Rendered ===");
+  console.log("Initial family state:", family);
+  console.log("Loading:", loading);
+
   const fetchFamily = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
       const userStr = localStorage.getItem("user");
       let user = null;
-      
+     
       try {
         user = JSON.parse(userStr);
       } catch {}
 
+      // DEBUG LOGS
+      console.log("=== Dashboard Debug ===");
+      console.log("Token exists:", !!token);
+      console.log("User:", user);
+      console.log("User has familyId:", user?.familyId);
+      
+      // CRITICAL FIX: Redirect to choose-family instead of showing error
       if (!token || !user?.familyId) {
-        setError("Please complete your family setup first.");
+        console.log("No familyId, redirecting to /choose-family");
+        // Redirect to choose-family page
+        window.location.href = '/choose-family';
         setLoading(false);
         return;
       }
 
-      const res = await API.get(`/family/families/${user.familyId}`);
-      setFamily(res.family);
+      console.log("Fetching family with ID:", user.familyId);
       
-      const relationsRes = await API.get(`/family/families/${user.familyId}/tree-with-relations`);
-      if (relationsRes.members && relationsRes.members.length > 0) {
-        const userMember = relationsRes.members.find(m => m.isSelf);
-        if (userMember) {
-          setSelectedMember(userMember);
-          calculateRelations(userMember, relationsRes.members);
-        }
+      // FIXED: Changed from /family/families/ to /families/
+      const res = await API.get(`/families/${user.familyId}`);
+      
+      console.log("API Response:", res);
+      console.log("Family data:", res.family);
+      console.log("Response keys:", Object.keys(res));
+      
+      // Check if family data exists - try different response formats
+      let familyData = res.family || res.data || res;
+      
+      console.log("Extracted familyData:", familyData);
+      
+      if (!familyData) {
+        console.error("No family data in response");
+        setError("Family data not found");
+        return;
       }
-
+      
+      setFamily(familyData);
+     
+      // Try to fetch relations if endpoint exists
+      try {
+        console.log("Fetching relations...");
+        const relationsRes = await API.get(`/families/${user.familyId}/tree-with-relations`);
+        
+        console.log("Relations response:", relationsRes);
+        
+        if (relationsRes.members && relationsRes.members.length > 0) {
+          const userMember = relationsRes.members.find(m => m.isSelf);
+          if (userMember) {
+            setSelectedMember(userMember);
+            calculateRelations(userMember, relationsRes.members);
+          }
+        }
+      } catch (relationsErr) {
+        console.warn("Could not load relations:", relationsErr);
+        // This is okay - relations are optional
+      }
+      
       setError("");
     } catch (err) {
       console.error("Dashboard fetch error:", err);
-      setError(err.error || "Failed to load family data");
+      console.error("Error details:", err.response || err);
+      console.error("Error status:", err.status);
+      console.error("Error message:", err.message);
+      
+      // Handle specific errors
+      if (err.status === 404 || err.error?.includes("not found")) {
+        setError("Family not found. Please create a family first.");
+        // Clear invalid familyId
+        const user = JSON.parse(localStorage.getItem("user"));
+        const updatedUser = { ...user, familyId: null, familyName: null };
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+        setTimeout(() => window.location.href = '/choose-family', 2000);
+      } else if (err.status === 401) {
+        setError("Session expired. Please login again.");
+        localStorage.clear();
+        setTimeout(() => window.location.href = '/', 2000);
+      } else {
+        setError(err.error || err.message || "Failed to load family data");
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    console.log("useEffect triggered, fetching family...");
     fetchFamily();
   }, [fetchFamily]);
 
   const calculateRelations = (member, allMembers) => {
     const relationsList = [];
-    
+   
     if (member.calculatedRelationships?.parents?.length > 0) {
       member.calculatedRelationships.parents.forEach(parentId => {
         const parent = allMembers.find(m => m._id === parentId);
@@ -86,7 +147,7 @@ function EnhancedDashboard() {
         }
       });
     }
-    
+   
     if (member.calculatedRelationships?.children?.length > 0) {
       member.calculatedRelationships.children.forEach(childId => {
         const child = allMembers.find(m => m._id === childId);
@@ -100,7 +161,7 @@ function EnhancedDashboard() {
         }
       });
     }
-    
+   
     if (member.calculatedRelationships?.siblings?.length > 0) {
       member.calculatedRelationships.siblings.forEach(siblingId => {
         const sibling = allMembers.find(m => m._id === siblingId);
@@ -114,7 +175,7 @@ function EnhancedDashboard() {
         }
       });
     }
-    
+   
     if (member.calculatedRelationships?.spouses?.length > 0) {
       member.calculatedRelationships.spouses.forEach(spouseId => {
         const spouse = allMembers.find(m => m._id === spouseId);
@@ -128,7 +189,7 @@ function EnhancedDashboard() {
         }
       });
     }
-    
+   
     setRelations(relationsList);
   };
 
@@ -154,20 +215,26 @@ function EnhancedDashboard() {
     );
   }
 
+  // DEBUG: Log when showing "no family" view
   if (!family) {
+    console.log("Showing 'no family' view. Current state:");
+    console.log("Family state:", family);
+    console.log("Loading:", loading);
+    console.log("Error:", error);
+    
     return (
       <div className="container mx-auto px-4 py-8">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-800 mb-4">Welcome to Family Tree</h1>
           <p className="text-gray-600 mb-6">You haven't created or joined a family yet.</p>
           <div className="space-x-4">
-            <button 
+            <button
               onClick={() => window.location.href = '/setup-family'}
               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition"
             >
               Create Family
             </button>
-            <button 
+            <button
               onClick={() => window.location.href = '/join-family'}
               className="bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300 transition"
             >
@@ -178,6 +245,11 @@ function EnhancedDashboard() {
       </div>
     );
   }
+
+  // DEBUG: Log when dashboard loads successfully
+  console.log("Dashboard loaded successfully!");
+  console.log("Family data:", family);
+  console.log("Family name:", family.name);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -192,7 +264,7 @@ function EnhancedDashboard() {
                 <p className="text-gray-500 italic mt-1">"{family.motto}"</p>
               )}
             </div>
-            
+           
             <div className="flex items-center space-x-4 mt-4 md:mt-0">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
@@ -204,7 +276,7 @@ function EnhancedDashboard() {
                   className="pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              
+             
               <button
                 onClick={() => setShowAddMember(true)}
                 className="flex items-center bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
@@ -212,7 +284,7 @@ function EnhancedDashboard() {
                 <Plus size={20} className="mr-2" />
                 Add Member
               </button>
-              
+             
               {notifications.length > 0 && (
                 <button className="relative">
                   <Bell size={24} className="text-gray-600" />
@@ -223,7 +295,7 @@ function EnhancedDashboard() {
               )}
             </div>
           </div>
-          
+         
           {/* Quick Stats */}
           <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-white p-4 rounded-xl shadow">
@@ -235,7 +307,7 @@ function EnhancedDashboard() {
                 </div>
               </div>
             </div>
-            
+           
             <div className="bg-white p-4 rounded-xl shadow">
               <div className="flex items-center">
                 <Users className="text-green-600 mr-3" />
@@ -245,7 +317,7 @@ function EnhancedDashboard() {
                 </div>
               </div>
             </div>
-            
+           
             <div className="bg-white p-4 rounded-xl shadow">
               <div className="flex items-center">
                 <Heart className="text-red-600 mr-3" />
@@ -255,7 +327,7 @@ function EnhancedDashboard() {
                 </div>
               </div>
             </div>
-            
+           
             <div className="bg-white p-4 rounded-xl shadow">
               <div className="flex items-center">
                 <Baby className="text-purple-600 mr-3" />
@@ -268,7 +340,6 @@ function EnhancedDashboard() {
           </div>
         </div>
       </header>
-
       {/* Navigation Tabs */}
       <nav className="bg-white border-b">
         <div className="container mx-auto px-4">
@@ -299,7 +370,6 @@ function EnhancedDashboard() {
           </div>
         </div>
       </nav>
-
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         {/* Action Bar */}
@@ -307,25 +377,24 @@ function EnhancedDashboard() {
           <h2 className="text-xl font-semibold text-gray-800 capitalize">
             {activeTab.replace("-", " ")}
           </h2>
-          
+         
           <div className="flex space-x-2">
             <button className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
               <Download size={18} className="mr-2" />
               Export
             </button>
-            
+           
             <button className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
               <Share2 size={18} className="mr-2" />
               Share
             </button>
-            
+           
             <button className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
               <Filter size={18} className="mr-2" />
               Filter
             </button>
           </div>
         </div>
-
         {/* Tab Content */}
         <div className="bg-white rounded-xl shadow p-6">
           {activeTab === "overview" && (
@@ -357,14 +426,14 @@ function EnhancedDashboard() {
                     </div>
                   </div>
                 </div>
-                
+               
                 <div>
                   <div className="bg-white p-6 rounded-xl shadow border">
                     <h3 className="text-lg font-bold mb-4 flex items-center">
                       <GitBranch className="mr-2 text-purple-600" />
                       Your Relationships
                     </h3>
-                    
+                   
                     {relations.length > 0 ? (
                       <div className="space-y-3">
                         {relations.slice(0, 4).map((rel, idx) => (
@@ -391,14 +460,14 @@ function EnhancedDashboard() {
                         <p className="text-sm text-gray-400 mt-1">Add family members to see relationships</p>
                       </div>
                     )}
-                    
+                   
                     <button className="w-full mt-4 py-2 border-2 border-dashed border-gray-300 text-gray-500 rounded-lg hover:border-blue-500 hover:text-blue-500">
                       + Add Relationship
                     </button>
                   </div>
                 </div>
               </div>
-              
+             
               {/* Recent Activity */}
               <div>
                 <h3 className="text-lg font-bold mb-4">Recent Family Activity</h3>
@@ -422,7 +491,7 @@ function EnhancedDashboard() {
                       </div>
                     </div>
                   </div>
-                  
+                 
                   <div className="bg-white p-4 rounded-lg border">
                     <h4 className="font-bold mb-3">New Additions</h4>
                     <div className="space-y-3">
@@ -446,7 +515,7 @@ function EnhancedDashboard() {
               </div>
             </div>
           )}
-          
+         
           {activeTab === "tree" && <FamilyTree familyId={family._id} />}
           {activeTab === "business" && <BusinessDirectory familyId={family._id} />}
           {activeTab === "finance" && <FamilyFinance familyId={family._id} />}
@@ -471,8 +540,8 @@ function EnhancedDashboard() {
                   ✕
                 </button>
               </div>
-              <AddMember 
-                familyId={family._id} 
+              <AddMember
+                familyId={family._id}
                 onMemberAdded={() => {
                   setShowAddMember(false);
                   fetchFamily();

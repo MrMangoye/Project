@@ -34,14 +34,24 @@ function EnhancedRegister() {
     try {
       if (step === 1) {
         // Account creation
+        console.log('=== STEP 1: Account Creation ===');
         const res = await API.post('/auth/register', {
           name: form.name,
           email: form.email,
           password: form.password
         });
         
+        console.log('Registration response:', res);
+        console.log('User from response:', res.user);
+        console.log('User has familyId?', !!res.user?.familyId);
+        
         localStorage.setItem('token', res.token);
         localStorage.setItem('user', JSON.stringify(res.user));
+        
+        // Verify localStorage
+        console.log('LocalStorage after step 1:');
+        console.log('Token:', localStorage.getItem('token'));
+        console.log('User:', JSON.parse(localStorage.getItem('user')));
         
         setStep(2);
         setSuccess('Account created successfully!');
@@ -53,31 +63,69 @@ function EnhancedRegister() {
           return;
         }
         
+        console.log('=== STEP 2: Family Setup ===');
+        console.log('Family choice:', form.familyChoice);
+        console.log('Family name:', form.familyName);
+        console.log('Family code:', form.familyCode);
+        
         let res;
         if (form.familyChoice === 'create') {
-          res = await API.post('/family/create', {
+          console.log('Calling /families/create');
+          res = await API.post('/families/create', {
             name: form.familyName
           });
         } else if (form.familyChoice === 'join') {
-          res = await API.post(`/family/join/${form.familyCode}`);
+          console.log('Calling /families/join/' + form.familyCode);
+          res = await API.post(`/families/join/${form.familyCode}`);
         }
+        
+        console.log('Family setup response:', res);
         
         if (res.needsApproval) {
           setSuccess(res.message || 'Request sent for approval');
           setTimeout(() => navigate(from), 2000);
         } else {
-          // Update user with family info
-          const user = JSON.parse(localStorage.getItem('user'));
-          const updatedUser = { 
-            ...user, 
-            familyId: res.family?._id || res.familyId,
-            familyName: form.familyName || res.family?.name
+          // CRITICAL FIX: Properly update user with familyId
+          const currentUser = JSON.parse(localStorage.getItem('user'));
+          console.log('Current user from localStorage:', currentUser);
+          
+          // Try multiple sources for familyId
+          let familyId = res.family?._id || res.familyId;
+          let familyName = form.familyName || res.family?.name;
+          
+          // If we still don't have familyId, check the user in response
+          if (!familyId && res.user?.familyId) {
+            familyId = res.user.familyId;
+          }
+          
+          console.log('Extracted familyId:', familyId);
+          console.log('Extracted familyName:', familyName);
+          console.log('Response has user?', !!res.user);
+          console.log('Response user familyId:', res.user?.familyId);
+          console.log('Response has family?', !!res.family);
+          console.log('Response family _id:', res.family?._id);
+          
+          const updatedUser = {
+            ...currentUser,
+            familyId: familyId,
+            familyName: familyName,
+            isFamilyAdmin: form.familyChoice === 'create'
           };
+          
+          console.log('Updated user:', updatedUser);
+          
+          // Save to localStorage
           localStorage.setItem('user', JSON.stringify(updatedUser));
           
+          // Also update token if provided
           if (res.token) {
             localStorage.setItem('token', res.token);
           }
+          
+          // Verify localStorage after update
+          console.log('LocalStorage after family setup:');
+          console.log('User:', JSON.parse(localStorage.getItem('user')));
+          console.log('Token:', localStorage.getItem('token'));
           
           setStep(3);
           setSuccess('Family setup completed!');
@@ -85,6 +133,11 @@ function EnhancedRegister() {
         
       } else if (step === 3) {
         // Final step - go to dashboard
+        console.log('=== STEP 3: Redirecting to Dashboard ===');
+        console.log('Final localStorage check before redirect:');
+        console.log('User:', JSON.parse(localStorage.getItem('user')));
+        console.log('Token:', localStorage.getItem('token'));
+        
         navigate(from);
       }
     } catch (err) {

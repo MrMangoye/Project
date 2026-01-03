@@ -71,9 +71,12 @@ router.post('/create', auth, validateFamilyCreate, async (req, res) => {
   }
 });
 
-// Get family with details
-router.get('/families/:id', auth, async (req, res) => {
+// Get family with details - FIXED PATH: remove "/families" prefix
+router.get('/:id', auth, async (req, res) => {
   try {
+    console.log(`GET /api/families/${req.params.id} called`);
+    console.log('User:', req.user._id);
+    
     const family = await Family.findById(req.params.id)
       .populate('createdBy', 'name email')
       .populate('admins', 'name email')
@@ -87,23 +90,42 @@ router.get('/families/:id', auth, async (req, res) => {
       });
 
     if (!family) {
+      console.log('Family not found:', req.params.id);
       return res.status(404).json({ error: 'Family not found' });
     }
 
+    console.log('Family found:', family.name);
+    
     const user = await User.findById(req.user._id);
-    if (family.settings.privacy === 'private' && 
-        user.familyId.toString() !== family._id.toString()) {
+    if (user.familyId.toString() !== family._id.toString()) {
+      console.log('Access denied - user not in family');
       return res.status(403).json({ error: 'Access denied' });
     }
 
+    // Format the response for frontend
+    const response = {
+      _id: family._id,
+      name: family.name,
+      description: family.description || '',
+      motto: family.motto || '',
+      origin: family.origin || '',
+      memberCount: family.members?.length || 0,
+      members: family.members || [],
+      createdBy: family.createdBy,
+      admins: family.admins,
+      createdAt: family.createdAt,
+      updatedAt: family.updatedAt
+    };
+
+    console.log('Sending family response:', response);
+    
     res.json({
       success: true,
-      family,
-      statistics: family.statistics
+      family: response
     });
   } catch (err) {
     console.error('Get family error:', err);
-    res.status(500).json({ error: 'Failed to fetch family' });
+    res.status(500).json({ error: 'Failed to fetch family', details: err.message });
   }
 });
 
@@ -118,7 +140,7 @@ router.post('/join/:familyId', auth, async (req, res) => {
 
     const user = await User.findById(req.user._id);
     
-    if (family.settings.requireApproval) {
+    if (family.settings?.requireApproval) {
       family.pendingMembers = family.pendingMembers || [];
       family.pendingMembers.push({
         userId: user._id,
@@ -248,10 +270,22 @@ async function updateRelationships(person, relationships) {
   }
 }
 
-// Get family tree with relationships
-router.get('/families/:id/tree-with-relations', auth, async (req, res) => {
+// Get family tree with relationships - FIXED PATH: remove "/families" prefix
+router.get('/:id/tree-with-relations', auth, async (req, res) => {
   try {
+    console.log(`GET /api/families/${req.params.id}/tree-with-relations called`);
+    
     const family = await Family.findById(req.params.id).populate('members');
+    
+    if (!family) {
+      return res.status(404).json({ error: 'Family not found' });
+    }
+
+    // Check if user belongs to this family
+    const user = await User.findById(req.user._id);
+    if (user.familyId.toString() !== family._id.toString()) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
     
     const membersWithRelations = await Promise.all(
       family.members.map(async (member) => {
@@ -270,14 +304,17 @@ router.get('/families/:id/tree-with-relations', auth, async (req, res) => {
         return {
           ...member.toObject(),
           calculatedRelationships: relationships,
-          relationLabels
+          relationLabels,
+          isSelf: member._id.toString() === req.user._id.toString()
         };
       })
     );
 
     res.json({
       success: true,
-      members: membersWithRelations
+      members: membersWithRelations,
+      familyId: family._id,
+      familyName: family.name
     });
   } catch (err) {
     console.error('Tree with relations error:', err);

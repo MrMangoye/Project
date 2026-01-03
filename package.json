@@ -1,9 +1,12 @@
 {
   "name": "project",
   "version": "1.0.0",
-  "description": "Family Management Application\r Overview\r This project is a full-stack family management system that allows users to create, join, and manage family groups. It provides tools to add family members with detailed personal information, track relationships, and manage business details associated with family members. The application also includes a dashboard for viewing family data, a business directory, and a family tree visualization.\r The purpose of this project is to make family history, relationships, and entrepreneurial activities easy to organize and accessible in one place.",
-  "main": "tailwing.config.js",
+  "description": "Family Management Application",
+  "main": "tailwind.config.js",
   "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -19,10 +22,19 @@
   },
   "homepage": "https://github.com/MrMangoye/Project#readme",
   "dependencies": {
+    "axios": "^1.6.2",
     "lucide-react": "^0.562.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
-    "recharts": "^3.6.0",
+    "react-router-dom": "^6.20.0",
+    "recharts": "^3.6.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/forms": "^0.5.11",
+    "@vitejs/plugin-react": "^4.7.0",
+    "autoprefixer": "^10.4.23",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.19",
     "vite": "^7.3.0"
   }
 }

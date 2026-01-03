@@ -2,8 +2,23 @@
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
+const mongoose = require('mongoose');
+require('dotenv').config();
 
 const app = express();
+
+// MongoDB Connection - Simplified (remove deprecated options)
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/family-tree', {
+  serverSelectionTimeoutMS: 5000,
+})
+.then(() => console.log('✅ MongoDB Connected Successfully'))
+.catch(err => {
+  console.error('❌ MongoDB Connection Error:', err.message);
+  console.log('\nTroubleshooting steps:');
+  console.log('1. Make sure MongoDB is installed');
+  console.log('2. Check if MongoDB service is running');
+  console.log('3. Try running: "mongod" in a separate terminal');
+});
 
 // Middleware
 app.use(cors());

@@ -21,22 +21,64 @@ export default function SetupFamily() {
     setLoading(true);
 
     try {
-      const res = await API.post("/family/create", form);
+      console.log("=== Creating Family ===");
+      console.log("Form data:", form);
+      
+      // FIX: Only send the name field
+      const res = await API.post("/families/create", {
+        name: form.name
+      });
 
-      // Update user with family info
+      console.log("Family creation API response:", res);
+      
+      // Update user with family info - handle different response formats
       const user = JSON.parse(localStorage.getItem("user"));
+      
+      // DEBUG: Check current user state
+      console.log("Current user before update:", user);
+      
+      // Try multiple possible locations for familyId
+      const familyId = res.family?._id || res.familyId || res._id || res.data?._id;
+      const familyName = res.family?.name || form.name;
+      
+      console.log("Extracted familyId:", familyId);
+      console.log("Extracted familyName:", familyName);
+      console.log("Full response for debugging:", JSON.stringify(res, null, 2));
+      
+      if (!familyId) {
+        console.error("No family ID in response:", res);
+        throw new Error("No family ID returned from server");
+      }
+
       const updatedUser = { 
         ...user, 
-        familyId: res.family._id,
-        familyName: res.family.name
+        familyId: familyId,
+        familyName: familyName,
+        isFamilyAdmin: true
       };
+      
+      console.log("Updated user to save:", updatedUser);
+      
       localStorage.setItem("user", JSON.stringify(updatedUser));
-
-      // Navigate to dashboard
-      navigate("/dashboard");
+      
+      // Verify localStorage was updated
+      const savedUser = JSON.parse(localStorage.getItem("user"));
+      console.log("Saved user in localStorage:", savedUser);
+      console.log("Saved user has familyId:", savedUser?.familyId);
+      console.log("LocalStorage contents:");
+      console.log("- token:", localStorage.getItem("token"));
+      console.log("- user:", localStorage.getItem("user"));
+      
+      // FIX: Force reload to ensure dashboard gets fresh data
+      console.log("Redirecting to dashboard...");
+      window.location.href = "/dashboard";
+      
     } catch (err) {
       console.error("Setup family error:", err);
-      setError(err.error || "Failed to setup family");
+      console.error("Error response:", err.response || err);
+      console.error("Error status:", err.status);
+      console.error("Error message:", err.message);
+      setError(err.error || err.message || "Failed to setup family");
     } finally {
       setLoading(false);
     }
@@ -75,6 +117,7 @@ export default function SetupFamily() {
                     placeholder="The Smith Family"
                     value={form.name}
                     onChange={(e) => setForm({...form, name: e.target.value})}
+                    disabled={loading}
                   />
                 </div>
               </div>
@@ -89,6 +132,7 @@ export default function SetupFamily() {
                   rows="3"
                   value={form.description}
                   onChange={(e) => setForm({...form, description: e.target.value})}
+                  disabled={loading}
                 />
               </div>
 
@@ -102,6 +146,7 @@ export default function SetupFamily() {
                   placeholder="Family First"
                   value={form.motto}
                   onChange={(e) => setForm({...form, motto: e.target.value})}
+                  disabled={loading}
                 />
               </div>
 
@@ -150,6 +195,7 @@ export default function SetupFamily() {
                   type="button"
                   onClick={() => navigate('/join-family')}
                   className="flex-1 px-6 py-3 border-2 border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition"
+                  disabled={loading}
                 >
                   Join Existing Family Instead
                 </button>
@@ -157,9 +203,16 @@ export default function SetupFamily() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:opacity-90 transition disabled:opacity-50"
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center"
                 >
-                  {loading ? 'Creating...' : 'Create Family'}
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                      Creating...
+                    </>
+                  ) : (
+                    'Create Family'
+                  )}
                 </button>
               </div>
             </form>
