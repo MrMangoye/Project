@@ -8,15 +8,15 @@ const Event = require('../models/Event');
 // Get family analytics
 router.get('/families/:id/analytics', auth, async (req, res) => {
   try {
+    console.log('Getting analytics for family:', req.params.id);
+    
     const familyId = req.params.id;
     
-    // Get family
     const family = await Family.findById(familyId);
     if (!family) {
       return res.status(404).json({ error: 'Family not found' });
     }
     
-    // Get all members
     const members = await Person.find({ familyId });
     
     // Calculate age distribution
@@ -112,6 +112,8 @@ router.get('/families/:id/analytics', auth, async (req, res) => {
 // Timeline analytics
 router.get('/families/:id/timeline', auth, async (req, res) => {
   try {
+    console.log('Getting timeline for family:', req.params.id);
+    
     const { year } = req.query;
     const familyId = req.params.id;
     

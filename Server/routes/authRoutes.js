@@ -11,21 +11,24 @@ const { validateRegister } = require('../middleware/validation');
 // Register user
 router.post('/register', validateRegister, async (req, res) => {
   try {
+    console.log('Registering user:', req.body.email);
+    
     const { name, email, password } = req.body;
-
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ error: 'User already exists' });
-
+    
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = new User({ name, email, password: hashedPassword });
     await user.save();
-
+    
     const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
     const userWithoutPassword = user.toObject();
     delete userWithoutPassword.password;
-
-    res.status(201).json({ 
-      token, 
+    
+    console.log('User registered successfully:', user._id);
+    
+    res.status(201).json({
+      token,
       user: userWithoutPassword,
       needsFamily: !user.familyId
     });
@@ -38,24 +41,25 @@ router.post('/register', validateRegister, async (req, res) => {
 // Register with family setup
 router.post('/register-with-family', async (req, res) => {
   try {
+    console.log('Register with family:', req.body);
+    
     const { name, email, password, familyChoice, familyName, familyCode } = req.body;
-
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists' });
     }
-
+    
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = new User({ name, email, password: hashedPassword });
     await user.save();
-
+    
     const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
     const userWithoutPassword = user.toObject();
     delete userWithoutPassword.password;
-
+    
     let familyId = null;
     let familyDetails = null;
-
+    
     if (familyChoice === 'create') {
       const family = new Family({
         name: familyName,
@@ -70,12 +74,12 @@ router.post('/register-with-family', async (req, res) => {
       await family.save();
       familyId = family._id;
       familyDetails = family;
-
+      
       user.familyId = familyId;
       user.role = 'admin';
       user.isFamilyAdmin = true;
       await user.save();
-
+      
       const person = new Person({
         name: user.name,
         email: user.email,
@@ -85,16 +89,17 @@ router.post('/register-with-family', async (req, res) => {
         role: 'admin'
       });
       await person.save();
-
+      
       family.members.push(person._id);
       await family.save();
-
+      
+      console.log('Family created:', familyId);
     } else if (familyChoice === 'join' && familyCode) {
       const family = await Family.findById(familyCode);
       if (!family) {
         return res.status(404).json({ error: 'Family not found' });
       }
-
+      
       if (family.settings.privacy === 'private' && family.settings.requireApproval) {
         family.pendingMembers = family.pendingMembers || [];
         family.pendingMembers.push({
@@ -104,7 +109,7 @@ router.post('/register-with-family', async (req, res) => {
           requestedAt: new Date()
         });
         await family.save();
-
+        
         res.json({
           token,
           user: userWithoutPassword,
@@ -114,13 +119,12 @@ router.post('/register-with-family', async (req, res) => {
         });
         return;
       }
-
+      
       familyId = family._id;
       familyDetails = family;
-
       user.familyId = familyId;
       await user.save();
-
+      
       const person = new Person({
         name: user.name,
         email: user.email,
@@ -129,18 +133,19 @@ router.post('/register-with-family', async (req, res) => {
         isSelf: true
       });
       await person.save();
-
+      
       family.members.push(person._id);
       await family.save();
+      
+      console.log('User joined family:', familyId);
     }
-
+    
     res.json({
       token,
       user: { ...userWithoutPassword, familyId },
       family: familyDetails,
       message: 'Registration successful'
     });
-
   } catch (err) {
     console.error('Registration error:', err);
     res.status(500).json({ error: 'Registration failed' });
@@ -150,21 +155,25 @@ router.post('/register-with-family', async (req, res) => {
 // Login
 router.post('/login', async (req, res) => {
   try {
+    console.log('Login attempt:', req.body.email);
+    
     const { email, password } = req.body;
-
     const user = await User.findOne({ email });
     if (!user || !(await bcrypt.compare(password, user.password))) {
+      console.log('Login failed for:', email);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-
+    
     const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
     const { password: _, ...userWithoutPassword } = user.toObject();
-
+    
     user.lastLogin = new Date();
     await user.save();
-
-    res.json({ 
-      token, 
+    
+    console.log('Login successful:', user._id);
+    
+    res.json({
+      token,
       user: userWithoutPassword,
       needsFamily: !user.familyId
     });
@@ -174,9 +183,11 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Profile
+// Get profile
 router.get('/profile', auth, async (req, res) => {
   try {
+    console.log('Getting profile for:', req.user._id);
+    
     const user = await User.findById(req.user._id).select('-password');
     if (!user) return res.status(404).json({ error: 'User not found' });
     
@@ -191,82 +202,5 @@ router.get('/profile', auth, async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch profile' });
   }
 });
-
-// Get user relationships
-router.get('/user-relationships', auth, async (req, res) => {
-  try {
-    const user = await User.findById(req.user._id);
-    
-    if (!user || !user.familyId) {
-      return res.json({ relationships: [] });
-    }
-
-    const person = await Person.findOne({ 
-      email: user.email, 
-      familyId: user.familyId 
-    });
-
-    if (!person) {
-      return res.json({ relationships: [] });
-    }
-
-    const allMembers = await Person.find({ familyId: user.familyId });
-    const relationships = await calculateAllRelationships(person, allMembers);
-
-    res.json({
-      success: true,
-      relationships
-    });
-
-  } catch (err) {
-    console.error('Get relationships error:', err);
-    res.status(500).json({ error: 'Failed to get relationships' });
-  }
-});
-
-// Helper function to calculate all relationships
-async function calculateAllRelationships(person, allMembers) {
-  const relationships = {
-    parents: [],
-    children: [],
-    siblings: [],
-    spouses: [],
-    grandparents: [],
-    grandchildren: [],
-    unclesAunts: [],
-    nephewsNieces: [],
-    cousins: []
-  };
-
-  if (person.relationships) {
-    relationships.parents = person.relationships.parents || [];
-    relationships.spouses = person.relationships.spouses || [];
-  }
-
-  // Calculate children
-  relationships.children = allMembers
-    .filter(member => 
-      member.relationships?.parents?.some(pId => 
-        pId.toString() === person._id.toString()
-      )
-    )
-    .map(m => m._id);
-
-  // Calculate siblings
-  if (person.relationships?.parents?.length > 0) {
-    relationships.siblings = allMembers
-      .filter(member => {
-        if (member._id.toString() === person._id.toString()) return false;
-        return member.relationships?.parents?.some(parentId => 
-          person.relationships.parents.some(pId => 
-            pId.toString() === parentId.toString()
-          )
-        );
-      })
-      .map(m => m._id);
-  }
-
-  return relationships;
-}
 
 module.exports = router;
